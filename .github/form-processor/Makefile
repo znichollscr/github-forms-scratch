@@ -26,6 +26,10 @@ help:  ## print short description of each target
 pre-commit:  ## run pre-commit on all files in the repository
 	uv run pre-commit run --all-files
 
+.PHONY: tests
+tests:  ## run the test suite
+	uv run pytest
+
 .PHONY: virtual-environment
 virtual-environment:  ## update virtual environment, create a new one if it doesn't already exist
 	uv sync

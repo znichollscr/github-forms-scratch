@@ -4,12 +4,19 @@ authors = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "pre-commit>=3.3.1",
+    "pydantic>=2.7",
 ]
-name = "local"
+name = "github-form-processor"
 version = "0.1.0"
-description = "Prototype of use of GitHub forms"
+description = "Process GitHub issue forms into registration pull requests"
 readme = "README.md"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=3.3.1",
+    "pytest>=8.0",
+    "ruff>=0.8",
+]
 
 [build-system]
 requires = ["uv_build>=0.8.7,<0.9.0"]
@@ -17,7 +24,7 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 source-include = [
-    "src/local"
+    "src/github_form_processor"
 ]
 
 [tool.uv]
@@ -42,7 +49,20 @@ ignore = [
     "D200",
     "D400",
     "UP007",
+    "PLR0912",
+    "PLR0913",
+    "PLR0915",
+    "PLR0911",
+    "PLR2004",
+    "S310",
+    "TRY003",
 ]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "D",
+    "S101",
+]
