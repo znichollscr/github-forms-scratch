@@ -1,0 +1,48 @@
+[project]
+authors = [
+    { name = "Zebedee Nicholls", email = "zebedee.nicholls@climate-resource.con"},
+]
+requires-python = ">=3.9"
+dependencies = [
+    "pre-commit>=3.3.1",
+]
+name = "local"
+version = "0.1.0"
+description = "Prototype of use of GitHub forms"
+readme = "README.md"
+
+[build-system]
+requires = ["uv_build>=0.8.7,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+source-include = [
+    "src/local"
+]
+
+[tool.uv]
+package = true
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "D",
+    "PL",
+    "TRY",
+    "NPY",
+    "RUF",
+    "UP",
+    "S",
+]
+unfixable = [ ]
+ignore = [
+    "D200",
+    "D400",
+    "UP007",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
