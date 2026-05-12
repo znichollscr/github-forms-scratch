@@ -24,9 +24,6 @@ body:
     attributes:
       label: Experiments
       description: Please provide one experiment ID per line.
-      placeholder: |
-        piclim-ch4
-        piclim-n2o
     validations:
       required: false
   - type: textarea
@@ -34,7 +31,5 @@ body:
     attributes:
       label: Reference URLs
       description: Please provide one URL per line.
-      placeholder: |
-        https://doi.org/10.5194/gmd-10-585-2017
     validations:
       required: false

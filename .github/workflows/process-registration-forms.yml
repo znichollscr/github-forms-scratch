@@ -28,9 +28,14 @@ jobs:
 
       - name: Process issue form
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # PAT with
+          # Contents: Read and write
+          # Issues: Read and write
+          # Pull requests: Read and write
+          GITHUB_TOKEN: FORM_ACCESS_TOKEN
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
-          EXPERIMENT_OUTPUT_DIR: experiment
-          ACTIVITY_OUTPUT_DIR: activity
-        run: python -m github_form_processor process
+        run: >
+          python -m github_form_processor process
+          --experiment-output-dir experiment
+          --activity-output-dir activity

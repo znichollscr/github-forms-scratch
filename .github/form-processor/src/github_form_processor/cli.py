@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import argparse
 import json
 import os
-import sys
 from collections.abc import Sequence
 from pathlib import Path
+
+import typer
 
 from github_form_processor.github_api import GitHubClient
 from github_form_processor.processor import (
@@ -18,53 +18,65 @@ from github_form_processor.processor import (
     prepare_registration,
 )
 
+app = typer.Typer(no_args_is_help=True)
 
-def main(argv: Sequence[str] | None = None) -> int:
+
+@app.callback()
+def _callback() -> None:
+    """Process GitHub issue registration forms."""
+
+
+def main(argv: Sequence[str] | None = None) -> None:
     """Run the form processor command-line interface."""
-    parser = argparse.ArgumentParser(prog="github-form-processor")
-    subparsers = parser.add_subparsers(dest="command")
-    process_parser = subparsers.add_parser("process")
-    process_parser.add_argument(
+    app(args=list(argv) if argv is not None else None)
+
+
+@app.command("process")
+def process_issue_form(
+    event_path: Path | None = typer.Option(
+        None,
         "--event-path",
-        default=os.environ.get("GITHUB_EVENT_PATH"),
-        help="Path to the GitHub event JSON payload.",
-    )
-    process_parser.add_argument(
+        help="Path to the GitHub event JSON payload. Defaults to GITHUB_EVENT_PATH.",
+    ),
+    experiment_output_dir: str = typer.Option(
+        "experiment",
+        "--experiment-output-dir",
+        help="Directory for generated experiment JSON files.",
+    ),
+    activity_output_dir: str = typer.Option(
+        "activity",
+        "--activity-output-dir",
+        help="Directory for generated activity JSON files.",
+    ),
+    skip_external_checks: bool = typer.Option(
+        False,
         "--skip-external-checks",
-        action="store_true",
         help="Skip remote CV and URL checks.",
-    )
-
-    args = parser.parse_args(argv)
-    if args.command != "process":
-        parser.print_help()
-        return 2
-
-    if not args.event_path:
-        print("No event path supplied.", file=sys.stderr)
-        return 2
-
-    event = json.loads(Path(args.event_path).read_text())
+    ),
+) -> None:
+    """Process one GitHub issue event into a registration pull request."""
+    event_path = event_path or _event_path_from_environment()
+    event = json.loads(event_path.read_text())
     issue = event.get("issue")
     if not issue:
-        print("Event does not contain an issue payload.")
-        return 0
+        typer.echo("Event does not contain an issue payload.")
+        raise typer.Exit(0)
 
     prepared, validation_errors, notes = prepare_registration(
         issue=issue,
-        experiment_output_dir=os.environ.get("EXPERIMENT_OUTPUT_DIR", "experiment"),
-        activity_output_dir=os.environ.get("ACTIVITY_OUTPUT_DIR", "activity"),
-        external_checks=not args.skip_external_checks,
+        experiment_output_dir=experiment_output_dir,
+        activity_output_dir=activity_output_dir,
+        external_checks=not skip_external_checks,
     )
     if prepared is None and not validation_errors:
-        print("Issue does not match a known registration form.")
-        return 0
+        typer.echo("Issue does not match a known registration form.")
+        raise typer.Exit(0)
 
     token = os.environ.get("GITHUB_TOKEN")
     repository = os.environ.get("GITHUB_REPOSITORY")
     if not token or not repository:
-        print("GITHUB_TOKEN and GITHUB_REPOSITORY are required.", file=sys.stderr)
-        return 2
+        typer.echo("GITHUB_TOKEN and GITHUB_REPOSITORY are required.", err=True)
+        raise typer.Exit(2)
 
     client = GitHubClient(repository=repository, token=token)
     issue_number = int(issue["number"])
@@ -73,36 +85,48 @@ def main(argv: Sequence[str] | None = None) -> int:
         client.comment_issue(
             issue_number, format_validation_comment(validation_errors, notes)
         )
-        print("Registration form has validation errors.")
-        return 0
+        typer.echo("Registration form has validation errors.")
+        raise typer.Exit(0)
 
     if prepared is None:
-        print("Issue does not match a known registration form.")
-        return 0
+        typer.echo("Issue does not match a known registration form.")
+        raise typer.Exit(0)
 
     action = event.get("action")
     default_branch = event.get("repository", {}).get("default_branch", "main")
     branch = prepared.branch_name(issue_number)
 
     if action == "opened":
-        return _process_opened_issue(
-            client=client,
-            issue_number=issue_number,
-            default_branch=default_branch,
-            branch=branch,
-            prepared=prepared,
+        raise typer.Exit(
+            _process_opened_issue(
+                client=client,
+                issue_number=issue_number,
+                default_branch=default_branch,
+                branch=branch,
+                prepared=prepared,
+            )
         )
 
     if action == "edited":
-        return _process_edited_issue(
-            client=client,
-            issue_number=issue_number,
-            branch=branch,
-            prepared=prepared,
+        raise typer.Exit(
+            _process_edited_issue(
+                client=client,
+                issue_number=issue_number,
+                branch=branch,
+                prepared=prepared,
+            )
         )
 
-    print(f"Ignoring unsupported issue action: {action}")
-    return 0
+    typer.echo(f"Ignoring unsupported issue action: {action}")
+    raise typer.Exit(0)
+
+
+def _event_path_from_environment() -> Path:
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if not event_path:
+        typer.echo("No event path supplied.", err=True)
+        raise typer.Exit(2)
+    return Path(event_path)
 
 
 def _process_opened_issue(
@@ -154,7 +178,7 @@ def _process_opened_issue(
             pull_request["html_url"], pr_number, prepared.notes, updated=False
         ),
     )
-    print(f"Created pull request #{pr_number}.")
+    typer.echo(f"Created pull request #{pr_number}.")
     return 0
 
 
@@ -183,7 +207,7 @@ def _process_edited_issue(
                 "Please open a new registration issue."
             )
         client.comment_issue(issue_number, format_edit_error_comment(message))
-        print(message, file=sys.stderr)
+        typer.echo(message, err=True)
         return 1
 
     pull_request = open_pulls[0]
@@ -214,7 +238,7 @@ def _process_edited_issue(
             pull_request["html_url"], pr_number, prepared.notes, updated=True
         ),
     )
-    print(f"Updated pull request #{pr_number}.")
+    typer.echo(f"Updated pull request #{pr_number}.")
     return 0
 
 
