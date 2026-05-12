@@ -20,7 +20,7 @@ uv run pytest
 The GitHub Actions workflow installs this package and runs
 
 ```sh
-python -m github_form_processor process \
+python -m github_form_processor \
   --experiment-output-dir experiment \
   --activity-output-dir activity
 ```

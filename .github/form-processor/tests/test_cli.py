@@ -37,7 +37,6 @@ def test_process_accepts_output_directories_as_options(tmp_path, monkeypatch):
     result = CliRunner().invoke(
         app,
         [
-            "process",
             "--event-path",
             str(event_path),
             "--experiment-output-dir",

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Sequence
 from pathlib import Path
 
 import typer
@@ -19,16 +18,6 @@ from github_form_processor.processor import (
 )
 
 app = typer.Typer(no_args_is_help=True)
-
-
-@app.callback()
-def _callback() -> None:
-    """Process GitHub issue registration forms."""
-
-
-def main(argv: Sequence[str] | None = None) -> None:
-    """Run the form processor command-line interface."""
-    app(args=list(argv) if argv is not None else None)
 
 
 @app.command("process")
@@ -88,9 +77,11 @@ def process_issue_form(
         typer.echo("Registration form has validation errors.")
         raise typer.Exit(0)
 
-    if prepared is None:
-        typer.echo("Issue does not match a known registration form.")
-        raise typer.Exit(0)
+    # Unnecessary, we know prepared is not None at this point
+    # because of the check above.
+    # if prepared is None:
+    #     typer.echo("Issue does not match a known registration form.")
+    #     raise typer.Exit(0)
 
     action = event.get("action")
     default_branch = event.get("repository", {}).get("default_branch", "main")
