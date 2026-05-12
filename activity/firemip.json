@@ -1,0 +1,11 @@
+{
+    "@context": "000_context.jsonld",
+    "id": "firemip",
+    "type": "activity",
+    "description": "Exploration of impact of fire.",
+    "drs_name": "FireMIP",
+    "experiments": [
+        "esm-scen7-h-nofires"
+    ],
+    "urls": []
+}
