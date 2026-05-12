@@ -32,7 +32,7 @@ jobs:
           # Contents: Read and write
           # Issues: Read and write
           # Pull requests: Read and write
-          GITHUB_TOKEN: FORM_ACCESS_TOKEN
+          GITHUB_TOKEN: "${{ secrets.FORM_ACCESS_TOKEN }}"
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: >

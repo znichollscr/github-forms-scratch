@@ -8,8 +8,7 @@ body:
     id: activity-name
     attributes:
       label: Activity name
-      description: Use only letters, numbers and hyphens. The name must be fewer than 40 characters.
-      placeholder: aerchemmip
+      description: Use only letters, numbers and hyphens. The name must be fewer than 40 characters. For example, AerChemMIP.
     validations:
       required: true
   - type: textarea
@@ -23,7 +22,10 @@ body:
     id: experiments
     attributes:
       label: Experiments
-      description: Please provide one experiment ID per line.
+      description: Please provide one experiment name (or ID) per line.
+      placeholder: |
+        exp-1
+        expbA
     validations:
       required: false
   - type: textarea
@@ -31,5 +33,8 @@ body:
     attributes:
       label: Reference URLs
       description: Please provide one URL per line.
+      placeholder: |
+        http://link/to/paper
+        https://link/to/docs
     validations:
       required: false
