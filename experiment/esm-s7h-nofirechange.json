@@ -5,7 +5,7 @@
     "description": "Future high emission scenario simulations (high-scenario) with fires (burned area fraction and/or fire emissions) fixed at the present-day level.",
     "drs_name": "esm-s7h-nofirechange",
     "start_timestamp": "2022-01-01",
-    "end_timestamp": null,
+    "end_timestamp": "2100-12-31",
     "activity": "firemip",
     "additional_allowed_model_components": [
         "chem"
