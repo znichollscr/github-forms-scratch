@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from github_form_processor.cv import CvClient, CvRepositories, JsonLookup, UrlCheck
 from github_form_processor.processor import prepare_registration
 
@@ -41,7 +43,7 @@ def test_prepare_experiment_registration_renders_superset_json():
                 "Tier": "1 - highest priority",
                 "Minimum ensemble size": "2",
                 "Start date": "2000-01-01",
-                "End date": "2010-01-01",
+                "End date": "2010-12-31",
                 "Minimum number of years per simulation": "9.5",
                 "Required model components": "AOGCM",
                 "Additional allowed model components": "AER\nBGC",
@@ -87,18 +89,18 @@ def test_prepare_experiment_registration_renders_superset_json():
         }
     )
 
-    prepared, errors, notes = prepare_registration(
+    result = prepare_registration(
         issue=issue,
         experiment_output_dir="experiment",
         activity_output_dir="activity",
         cv_client=cv_client,
     )
 
-    assert errors == []
-    assert notes == []
-    assert prepared is not None
-    assert prepared.output_path == "experiment/my-experiment.json"
-    payload = json.loads(prepared.content)
+    assert result.validation_errors == []
+    assert result.notes == []
+    assert result.prepared is not None
+    assert result.prepared.output_path == "experiment/my-experiment.json"
+    payload = json.loads(result.prepared.content)
     assert payload == {
         "@context": "000_context.jsonld",
         "id": "my-experiment",
@@ -106,7 +108,7 @@ def test_prepare_experiment_registration_renders_superset_json():
         "description": "A short experiment description.",
         "drs_name": "My-Experiment",
         "start_timestamp": "2000-01-01",
-        "end_timestamp": "2010-01-01",
+        "end_timestamp": "2010-12-31",
         "activity": "cmip",
         "additional_allowed_model_components": ["aer", "bgc"],
         "branch_information": "Branch from `piControl` at a time of your choosing",
@@ -132,23 +134,53 @@ def test_prepare_experiment_rejects_min_years_longer_than_date_span():
                 "Tier": "1 - highest priority",
                 "Minimum ensemble size": "1",
                 "Start date": "2000-01-01",
-                "End date": "2001-01-01",
+                "End date": "2000-12-31",
                 "Minimum number of years per simulation": "2.0",
                 "Required model components": "aogcm",
             }
         ),
     }
 
-    prepared, errors, notes = prepare_registration(
+    result = prepare_registration(
         issue=issue,
         experiment_output_dir="experiment",
         activity_output_dir="activity",
         external_checks=False,
     )
 
-    assert prepared is None
-    assert notes == []
-    assert any("minimum number of years per simulation" in error for error in errors)
+    assert result.prepared is None
+    assert result.notes == []
+    assert any(
+        "minimum number of years per simulation" in error
+        for error in result.validation_errors
+    )
+
+
+def test_prepare_experiment_raises_for_non_calendar_year_date_span():
+    issue = {
+        "title": "[Experiment registration]: Test",
+        "labels": [{"name": "registration: experiment"}],
+        "body": _body(
+            {
+                "Experiment name": "My-Experiment",
+                "Experiment description": "A short experiment description.",
+                "Activity": "cmip",
+                "Tier": "1 - highest priority",
+                "Minimum ensemble size": "1",
+                "Start date": "2000-02-01",
+                "End date": "2000-12-31",
+                "Minimum number of years per simulation": "1.0",
+            }
+        ),
+    }
+
+    with pytest.raises(NotImplementedError, match=r"1 January.*31 December"):
+        prepare_registration(
+            issue=issue,
+            experiment_output_dir="experiment",
+            activity_output_dir="activity",
+            external_checks=False,
+        )
 
 
 def test_prepare_experiment_uses_configured_remote_cv_repositories():
@@ -178,7 +210,7 @@ def test_prepare_experiment_uses_configured_remote_cv_repositories():
         }
     )
 
-    prepared, errors, notes = prepare_registration(
+    result = prepare_registration(
         issue=issue,
         experiment_output_dir="experiment",
         activity_output_dir="activity",
@@ -189,9 +221,38 @@ def test_prepare_experiment_uses_configured_remote_cv_repositories():
         ),
     )
 
-    assert prepared is not None
-    assert errors == []
-    assert notes == []
+    assert result.prepared is not None
+    assert result.validation_errors == []
+    assert result.notes == []
+
+
+def test_prepare_experiment_allows_missing_required_model_components():
+    issue = {
+        "title": "[Experiment registration]: Test",
+        "labels": [{"name": "registration: experiment"}],
+        "body": _body(
+            {
+                "Experiment name": "My-Experiment",
+                "Experiment description": "A short experiment description.",
+                "Activity": "cmip",
+                "Tier": "1 - highest priority",
+                "Minimum ensemble size": "1",
+                "Minimum number of years per simulation": "1.0",
+            }
+        ),
+    }
+
+    result = prepare_registration(
+        issue=issue,
+        experiment_output_dir="experiment",
+        activity_output_dir="activity",
+        external_checks=False,
+    )
+
+    assert result.validation_errors == []
+    assert result.notes == []
+    assert result.prepared is not None
+    assert json.loads(result.prepared.content)["required_model_components"] == []
 
 
 def test_prepare_activity_blocks_inaccessible_reference_url():
@@ -222,7 +283,7 @@ def test_prepare_activity_blocks_inaccessible_reference_url():
         }
     )
 
-    prepared, errors, notes = prepare_registration(
+    result = prepare_registration(
         issue=issue,
         experiment_output_dir="experiment",
         activity_output_dir="activity",
@@ -230,11 +291,13 @@ def test_prepare_activity_blocks_inaccessible_reference_url():
         url_checker=url_checker,
     )
 
-    assert prepared is None
-    assert errors == [
+    assert result.prepared is None
+    assert result.validation_errors == [
         "Reference URL `https://example.invalid/dead` returned HTTP status 404."
     ]
-    assert notes == ["Experiment `missing-exp` is not already part of the CMIP7 CVs."]
+    assert result.notes == [
+        "Experiment `missing-exp` is not already part of the CMIP7 CVs."
+    ]
 
 
 def test_prepare_activity_renders_json():
@@ -251,18 +314,18 @@ def test_prepare_activity_renders_json():
         ),
     }
 
-    prepared, errors, notes = prepare_registration(
+    result = prepare_registration(
         issue=issue,
         experiment_output_dir="experiment",
         activity_output_dir="activity",
         external_checks=False,
     )
 
-    assert errors == []
-    assert notes == []
-    assert prepared is not None
-    assert prepared.output_path == "activity/myactivity.json"
-    assert json.loads(prepared.content) == {
+    assert result.validation_errors == []
+    assert result.notes == []
+    assert result.prepared is not None
+    assert result.prepared.output_path == "activity/myactivity.json"
+    assert json.loads(result.prepared.content) == {
         "@context": "000_context.jsonld",
         "id": "myactivity",
         "type": "activity",
@@ -289,7 +352,7 @@ def test_prepare_activity_can_check_cmip7_cvs_from_local_path(tmp_path):
         ),
     }
 
-    prepared, errors, notes = prepare_registration(
+    result = prepare_registration(
         issue=issue,
         experiment_output_dir="experiment",
         activity_output_dir="activity",
@@ -299,9 +362,11 @@ def test_prepare_activity_can_check_cmip7_cvs_from_local_path(tmp_path):
         ),
     )
 
-    assert prepared is not None
-    assert errors == []
-    assert notes == ["Experiment `missing-exp` is not already part of the CMIP7 CVs."]
+    assert result.prepared is not None
+    assert result.validation_errors == []
+    assert result.notes == [
+        "Experiment `missing-exp` is not already part of the CMIP7 CVs."
+    ]
 
 
 def _body(fields):

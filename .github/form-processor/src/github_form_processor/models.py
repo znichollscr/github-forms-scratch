@@ -54,7 +54,7 @@ class ExperimentRegistration(RegistrationBase):
     start_date: date | None = None
     end_date: date | None = None
     min_number_yrs_per_sim: float
-    required_model_components: list[str] = Field(min_length=1)
+    required_model_components: list[str] = Field(default_factory=list)
     additional_allowed_model_components: list[str] = Field(default_factory=list)
     parent_experiment: str | None = None
     parent_activity: str | None = None
@@ -107,13 +107,6 @@ class ExperimentRegistration(RegistrationBase):
             raise ValueError("must be a positive number")
         return value
 
-    @field_validator("required_model_components")
-    @classmethod
-    def _validate_required_components(cls, value: list[str]) -> list[str]:
-        if not value:
-            raise ValueError("must contain at least one model component")
-        return value
-
     @model_validator(mode="after")
     def _validate_date_span(self) -> ExperimentRegistration:
         if self.start_date is None or self.end_date is None:
@@ -122,7 +115,16 @@ class ExperimentRegistration(RegistrationBase):
         if self.end_date <= self.start_date:
             raise ValueError("end date must be after start date")
 
-        available_years = (self.end_date - self.start_date).days / 365.2425
+        if (self.start_date.month, self.start_date.day) != (1, 1) or (
+            self.end_date.month,
+            self.end_date.day,
+        ) != (12, 31):
+            raise NotImplementedError(
+                "date-span validation only supports experiments that start on "
+                "1 January and end on 31 December"
+            )
+
+        available_years = self.end_date.year - self.start_date.year + 1
         if self.min_number_yrs_per_sim > available_years:
             raise ValueError(
                 "minimum number of years per simulation is longer than the interval "

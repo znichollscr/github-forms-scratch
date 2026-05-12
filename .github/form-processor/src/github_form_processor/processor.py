@@ -55,6 +55,15 @@ class PreparedRegistration:
         return f"{directory}/{identifier}.json"
 
 
+@dataclass(frozen=True)
+class RegistrationPreparationResult:
+    """Result from preparing a registration issue."""
+
+    prepared: PreparedRegistration | None
+    validation_errors: list[str]
+    notes: list[str]
+
+
 def prepare_registration(
     *,
     issue: dict[str, Any],
@@ -64,12 +73,25 @@ def prepare_registration(
     cv_client: CvClient | None = None,
     cv_repositories: CvRepositories | None = None,
     url_checker: UrlChecker | None = None,
-) -> tuple[PreparedRegistration | None, list[str], list[str]]:
-    """Prepare a registration from a GitHub issue payload."""
+) -> RegistrationPreparationResult:
+    """Prepare a registration from a GitHub issue payload.
+
+    Returns
+    -------
+    RegistrationPreparationResult
+        The prepared registration, blocking validation errors, and non-blocking
+        notes. If the issue is not a recognised registration form, ``prepared``
+        is ``None`` and both lists are empty. If blocking validation errors are
+        found, ``prepared`` is ``None`` and ``validation_errors`` is populated.
+    """
     fields = parse_issue_form_body(str(issue.get("body") or ""))
     kind = detect_form_kind(issue, fields)
     if kind is None:
-        return None, [], []
+        return RegistrationPreparationResult(
+            prepared=None,
+            validation_errors=[],
+            notes=[],
+        )
 
     notes: list[str] = []
     validation_errors: list[str] = []
@@ -120,12 +142,24 @@ def prepare_registration(
                 notes=notes,
             )
     except ValidationError as exc:
-        return None, _format_pydantic_errors(exc), notes
+        return RegistrationPreparationResult(
+            prepared=None,
+            validation_errors=_format_pydantic_errors(exc),
+            notes=notes,
+        )
 
     if validation_errors:
-        return None, validation_errors, notes
+        return RegistrationPreparationResult(
+            prepared=None,
+            validation_errors=validation_errors,
+            notes=notes,
+        )
 
-    return prepared, [], notes
+    return RegistrationPreparationResult(
+        prepared=prepared,
+        validation_errors=[],
+        notes=notes,
+    )
 
 
 def detect_form_kind(issue: dict[str, Any], fields: dict[str, str]) -> str | None:
@@ -199,7 +233,7 @@ def _experiment_from_fields(fields: dict[str, str]) -> ExperimentRegistration:
             "min_number_yrs_per_sim": _require_field(
                 fields, "Minimum number of years per simulation"
             ),
-            "required_model_components": _require_field(
+            "required_model_components": _optional_field(
                 fields, "Required model components"
             ),
             "additional_allowed_model_components": _optional_field(

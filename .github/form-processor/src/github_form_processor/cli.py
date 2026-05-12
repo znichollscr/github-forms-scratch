@@ -72,7 +72,7 @@ def process_issue_form(
         typer.echo("Event does not contain an issue payload.")
         raise typer.Exit(0)
 
-    prepared, validation_errors, notes = prepare_registration(
+    preparation = prepare_registration(
         issue=issue,
         experiment_output_dir=experiment_output_dir,
         activity_output_dir=activity_output_dir,
@@ -83,7 +83,7 @@ def process_issue_form(
             cmip7_cvs_path=cmip7_cvs_path,
         ),
     )
-    if prepared is None and not validation_errors:
+    if preparation.prepared is None and not preparation.validation_errors:
         typer.echo("Issue does not match a known registration form.")
         raise typer.Exit(0)
 
@@ -96,22 +96,24 @@ def process_issue_form(
     client = GitHubClient(repository=repository, token=token)
     issue_number = int(issue["number"])
 
-    if validation_errors:
+    if preparation.validation_errors:
         client.comment_issue(
-            issue_number, format_validation_comment(validation_errors, notes)
+            issue_number,
+            format_validation_comment(
+                preparation.validation_errors,
+                preparation.notes,
+            ),
         )
         typer.echo("Registration form has validation errors.")
         raise typer.Exit(0)
 
-    # Unnecessary, we know prepared is not None at this point
-    # because of the check above.
-    # if prepared is None:
-    #     typer.echo("Issue does not match a known registration form.")
-    #     raise typer.Exit(0)
+    if preparation.prepared is None:
+        typer.echo("Issue does not match a known registration form.")
+        raise typer.Exit(0)
 
     action = event.get("action")
     default_branch = event.get("repository", {}).get("default_branch", "main")
-    branch = prepared.branch_name(issue_number)
+    branch = preparation.prepared.branch_name(issue_number)
 
     if action == "opened":
         raise typer.Exit(
@@ -120,7 +122,7 @@ def process_issue_form(
                 issue_number=issue_number,
                 default_branch=default_branch,
                 branch=branch,
-                prepared=prepared,
+                prepared=preparation.prepared,
             )
         )
 
@@ -130,7 +132,7 @@ def process_issue_form(
                 client=client,
                 issue_number=issue_number,
                 branch=branch,
-                prepared=prepared,
+                prepared=preparation.prepared,
             )
         )
 

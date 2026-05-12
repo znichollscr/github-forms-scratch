@@ -11,7 +11,7 @@ body:
       description: Use only letters, numbers and hyphens. The name must be fewer than 40 characters.
       placeholder: piControl-spinup
     validations:
-      required: true
+      required: false
   - type: textarea
     id: experiment-description
     attributes:
@@ -33,9 +33,9 @@ body:
       label: Tier
       description: Tier 1 is highest priority and tier 3 is lowest priority.
       options:
-        - "1 - highest priority"
+        - "1"
         - "2"
-        - "3 - lowest priority"
+        - "3"
     validations:
       required: true
   - type: input

@@ -5,6 +5,7 @@ import json
 from typer.testing import CliRunner
 
 from github_form_processor.cli import _process_edited_issue, _process_opened_issue, app
+from github_form_processor.processor import RegistrationPreparationResult
 
 
 def test_process_accepts_output_directories_as_options(tmp_path, monkeypatch):
@@ -27,7 +28,11 @@ def test_process_accepts_output_directories_as_options(tmp_path, monkeypatch):
 
     def fake_prepare_registration(**kwargs):
         call.update(kwargs)
-        return None, [], []
+        return RegistrationPreparationResult(
+            prepared=None,
+            validation_errors=[],
+            notes=[],
+        )
 
     monkeypatch.setattr(
         "github_form_processor.cli.prepare_registration",
