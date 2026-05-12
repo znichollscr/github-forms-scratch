@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from github_form_processor.cv import (
     CvClient,
+    CvRepositories,
     UrlChecker,
     check_activity_against_cvs,
     check_activity_urls,
@@ -61,6 +62,7 @@ def prepare_registration(
     activity_output_dir: str,
     external_checks: bool = True,
     cv_client: CvClient | None = None,
+    cv_repositories: CvRepositories | None = None,
     url_checker: UrlChecker | None = None,
 ) -> tuple[PreparedRegistration | None, list[str], list[str]]:
     """Prepare a registration from a GitHub issue payload."""
@@ -72,13 +74,20 @@ def prepare_registration(
     notes: list[str] = []
     validation_errors: list[str] = []
     cv_client = cv_client or CvClient()
+    cv_repositories = cv_repositories or CvRepositories()
     url_checker = url_checker or UrlChecker()
 
     try:
         if kind == "experiment":
             experiment = _experiment_from_fields(fields)
             if external_checks:
-                notes.extend(check_experiment_against_cvs(experiment, cv_client))
+                notes.extend(
+                    check_experiment_against_cvs(
+                        experiment,
+                        cv_client,
+                        cv_repositories,
+                    )
+                )
             prepared = PreparedRegistration(
                 kind=kind,
                 identifier=experiment.identifier,
@@ -94,7 +103,13 @@ def prepare_registration(
             activity = _activity_from_fields(fields)
             if external_checks:
                 validation_errors.extend(check_activity_urls(activity, url_checker))
-                notes.extend(check_activity_against_cvs(activity, cv_client))
+                notes.extend(
+                    check_activity_against_cvs(
+                        activity,
+                        cv_client,
+                        cv_repositories,
+                    )
+                )
             prepared = PreparedRegistration(
                 kind=kind,
                 identifier=activity.identifier,

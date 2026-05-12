@@ -39,3 +39,5 @@ jobs:
           python -m github_form_processor
           --experiment-output-dir experiment
           --activity-output-dir activity
+          --wcrp-universe-url https://raw.githubusercontent.com/WCRP-CMIP/WCRP-universe/esgvoc
+          --cmip7-cvs-url https://raw.githubusercontent.com/WCRP-CMIP/CMIP7-CVs/esgvoc

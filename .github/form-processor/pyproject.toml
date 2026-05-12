@@ -67,3 +67,8 @@ convention = "numpy"
     "D",
     "S101",
 ]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--doctest-modules",
+]

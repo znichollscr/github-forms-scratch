@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
@@ -12,9 +13,17 @@ from urllib.request import Request, urlopen
 
 from github_form_processor.models import ActivityRegistration, ExperimentRegistration
 
-CMIP7_CVS_REPO = "WCRP-CMIP/CMIP7-CVs"
-WCRP_UNIVERSE_REPO = "WCRP-CMIP/WCRP-universe"
-ESGVOC_BRANCH = "esgvoc"
+CMIP7_CVS_URL = "https://raw.githubusercontent.com/WCRP-CMIP/CMIP7-CVs/esgvoc"
+WCRP_UNIVERSE_URL = "https://raw.githubusercontent.com/WCRP-CMIP/WCRP-universe/esgvoc"
+
+
+@dataclass(frozen=True)
+class CvRepositories:
+    """Repository locations used for external CV checks."""
+
+    wcrp_universe_url: str = WCRP_UNIVERSE_URL
+    cmip7_cvs_url: str = CMIP7_CVS_URL
+    cmip7_cvs_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -36,20 +45,14 @@ class UrlCheck:
 
 
 class CvClient:
-    """Client for reading public JSON files from CV repositories."""
+    """Client for reading JSON files from CV repositories."""
 
     def __init__(self, timeout: int = 15) -> None:
         self.timeout = timeout
 
-    def fetch_json(
-        self, repo: str, branch: str, folder: str, identifier: str
-    ) -> JsonLookup:
-        """Fetch a JSON CV entry by repository, branch, folder and identifier."""
-        url = (
-            "https://raw.githubusercontent.com/"
-            f"{repo}/{quote(branch, safe='')}/"
-            f"{quote(folder, safe='/')}/{quote(identifier, safe='')}.json"
-        )
+    def fetch_json(self, base_url: str, folder: str, identifier: str) -> JsonLookup:
+        """Fetch a JSON CV entry from a remote CV root URL."""
+        url = _entry_url(base_url, folder, identifier)
         request = Request(url, headers={"User-Agent": "github-form-processor"})
         try:
             with urlopen(request, timeout=self.timeout) as response:
@@ -63,6 +66,20 @@ class CvClient:
 
         if not isinstance(payload, Mapping):
             return JsonLookup(found=False, error=f"Expected a JSON object at {url}")
+        return JsonLookup(found=True, data=payload)
+
+    def fetch_local_json(self, root: Path, folder: str, identifier: str) -> JsonLookup:
+        """Fetch a JSON CV entry from a local repository checkout."""
+        path = root / folder / f"{identifier}.json"
+        try:
+            payload = json.loads(path.read_text())
+        except FileNotFoundError:
+            return JsonLookup(found=False)
+        except (OSError, json.JSONDecodeError) as exc:
+            return JsonLookup(found=False, error=f"{type(exc).__name__}: {exc}")
+
+        if not isinstance(payload, Mapping):
+            return JsonLookup(found=False, error=f"Expected a JSON object at {path}")
         return JsonLookup(found=True, data=payload)
 
 
@@ -99,13 +116,14 @@ class UrlChecker:
 def check_experiment_against_cvs(
     experiment: ExperimentRegistration,
     cv_client: CvClient,
+    repositories: CvRepositories,
 ) -> list[str]:
     """Return non-blocking notes from checking an experiment against remote CVs."""
     notes: list[str] = []
 
-    activity_lookup = cv_client.fetch_json(
-        CMIP7_CVS_REPO,
-        ESGVOC_BRANCH,
+    activity_lookup = _fetch_cmip7_json(
+        cv_client,
+        repositories,
         "activity",
         experiment.activity,
     )
@@ -126,8 +144,7 @@ def check_experiment_against_cvs(
         )
     ):
         component_lookup = cv_client.fetch_json(
-            WCRP_UNIVERSE_REPO,
-            ESGVOC_BRANCH,
+            repositories.wcrp_universe_url,
             "source_type",
             component,
         )
@@ -146,8 +163,7 @@ def check_experiment_against_cvs(
 
     if experiment.parent_experiment:
         parent_lookup = cv_client.fetch_json(
-            WCRP_UNIVERSE_REPO,
-            ESGVOC_BRANCH,
+            repositories.wcrp_universe_url,
             "experiment",
             experiment.parent_experiment,
         )
@@ -182,14 +198,15 @@ def check_experiment_against_cvs(
 def check_activity_against_cvs(
     activity: ActivityRegistration,
     cv_client: CvClient,
+    repositories: CvRepositories,
 ) -> list[str]:
     """Return non-blocking notes from checking an activity against remote CVs."""
     notes: list[str] = []
 
     for experiment_id in activity.experiments:
-        experiment_lookup = cv_client.fetch_json(
-            CMIP7_CVS_REPO,
-            ESGVOC_BRANCH,
+        experiment_lookup = _fetch_cmip7_json(
+            cv_client,
+            repositories,
             "experiment",
             experiment_id,
         )
@@ -231,3 +248,30 @@ def _append_missing_or_error_note(
         notes.append(f"{error_prefix}: {lookup.error}.")
     elif not lookup.found:
         notes.append(missing_note)
+
+
+def _fetch_cmip7_json(
+    cv_client: CvClient,
+    repositories: CvRepositories,
+    folder: str,
+    identifier: str,
+) -> JsonLookup:
+    if repositories.cmip7_cvs_path is not None:
+        return cv_client.fetch_local_json(
+            repositories.cmip7_cvs_path,
+            folder,
+            identifier,
+        )
+
+    return cv_client.fetch_json(
+        repositories.cmip7_cvs_url,
+        folder,
+        identifier,
+    )
+
+
+def _entry_url(base_url: str, folder: str, identifier: str) -> str:
+    return (
+        f"{base_url.rstrip('/')}/"
+        f"{quote(folder, safe='/')}/{quote(identifier, safe='')}.json"
+    )

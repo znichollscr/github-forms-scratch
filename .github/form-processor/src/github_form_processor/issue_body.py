@@ -8,7 +8,20 @@ NO_RESPONSE_VALUES = {"", "_No response_", "No response"}
 
 
 def parse_issue_form_body(body: str) -> dict[str, str]:
-    """Parse a GitHub issue form body into a mapping from heading to value."""
+    """Parse a GitHub issue form body into a mapping from heading to value.
+
+    >>> body = '''
+    ... ### Experiment name
+    ...
+    ... My-Experiment
+    ...
+    ... ### Parent experiment
+    ...
+    ... _No response_
+    ... '''
+    >>> parse_issue_form_body(body)
+    {'Experiment name': 'My-Experiment', 'Parent experiment': ''}
+    """
     heading_pattern = re.compile(r"^### (?P<label>.+?)\s*$", re.MULTILINE)
     matches = list(heading_pattern.finditer(body or ""))
     fields: dict[str, str] = {}

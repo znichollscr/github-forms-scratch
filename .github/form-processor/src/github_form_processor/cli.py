@@ -8,6 +8,7 @@ from pathlib import Path
 
 import typer
 
+from github_form_processor.cv import CvRepositories
 from github_form_processor.github_api import GitHubClient
 from github_form_processor.processor import (
     PreparedRegistration,
@@ -42,6 +43,26 @@ def process_issue_form(
         "--skip-external-checks",
         help="Skip remote CV and URL checks.",
     ),
+    wcrp_universe_url: str = typer.Option(
+        "https://raw.githubusercontent.com/WCRP-CMIP/WCRP-universe/esgvoc",
+        "--wcrp-universe-url",
+        help="URL root for WCRP universe CV JSON files.",
+    ),
+    cmip7_cvs_url: str = typer.Option(
+        "https://raw.githubusercontent.com/WCRP-CMIP/CMIP7-CVs/esgvoc",
+        "--cmip7-cvs-url",
+        help="URL root for CMIP7 CV JSON files. Ignored when --cmip7-cvs-path is set.",
+    ),
+    cmip7_cvs_path: Path | None = typer.Option(
+        None,
+        "--cmip7-cvs-path",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
+        resolve_path=True,
+        help="Local CMIP7-CVs repository checkout to use instead of --cmip7-cvs-url.",
+    ),
 ) -> None:
     """Process one GitHub issue event into a registration pull request."""
     event_path = event_path or _event_path_from_environment()
@@ -56,6 +77,11 @@ def process_issue_form(
         experiment_output_dir=experiment_output_dir,
         activity_output_dir=activity_output_dir,
         external_checks=not skip_external_checks,
+        cv_repositories=CvRepositories(
+            wcrp_universe_url=wcrp_universe_url,
+            cmip7_cvs_url=cmip7_cvs_url,
+            cmip7_cvs_path=cmip7_cvs_path,
+        ),
     )
     if prepared is None and not validation_errors:
         typer.echo("Issue does not match a known registration form.")
@@ -130,19 +156,15 @@ def _process_opened_issue(
 ) -> int:
     """Create the registration branch, commit and pull request."""
     if client.content_exists(prepared.output_path, default_branch):
+        message = (
+            f"Target file `{prepared.output_path}` already exists on "
+            f"`{default_branch}`."
+        )
         client.comment_issue(
             issue_number,
-            format_validation_comment(
-                [
-                    (
-                        f"Target file `{prepared.output_path}` already exists on "
-                        f"`{default_branch}`."
-                    )
-                ],
-                prepared.notes,
-            ),
+            format_validation_comment([message], prepared.notes),
         )
-        return 0
+        raise RuntimeError(message)
 
     if not client.branch_exists(branch):
         base_sha = client.get_ref_sha(default_branch)
@@ -185,6 +207,16 @@ def _process_edited_issue(
     if not pulls:
         pulls = client.find_pull_requests_for_issue(issue_number)
     open_pulls = [pull for pull in pulls if pull.get("state") == "open"]
+    if len(open_pulls) > 1:
+        pull_numbers = ", ".join(f"#{pull['number']}" for pull in open_pulls)
+        message = (
+            "Multiple open registration pull requests were found for this issue: "
+            f"{pull_numbers}. Please close the duplicates before editing the "
+            "registration issue again."
+        )
+        client.comment_issue(issue_number, format_edit_error_comment(message))
+        raise RuntimeError(message)
+
     if not open_pulls:
         if pulls:
             message = (
