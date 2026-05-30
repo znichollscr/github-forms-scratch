@@ -19,7 +19,6 @@ from github_form_processor.github_api import GitHubClient
 from github_form_processor.processor import PreparedRegistration, prepare_registration
 
 app = typer.Typer(no_args_is_help=True)
-PR_BASE_BRANCH = "esgvoc_dev"
 
 
 @app.command("process")
@@ -28,6 +27,11 @@ def process_issue_form(
         None,
         "--event-path",
         help="Path to the GitHub event JSON payload. Defaults to GITHUB_EVENT_PATH.",
+    ),
+    pr_base_branch: str = typer.Option(
+        "esgvoc_dev",
+        "--pr-base-branch",
+        help="Base branch for generated pull requests.",
     ),
     experiment_output_dir: str = typer.Option(
         "experiment",
@@ -134,7 +138,7 @@ def process_issue_form(
             _process_opened_issue(
                 client=client,
                 issue_number=issue_number,
-                base_branch=PR_BASE_BRANCH,
+                base_branch=pr_base_branch,
                 branch=branch,
                 prepared=preparation.prepared,
             )
