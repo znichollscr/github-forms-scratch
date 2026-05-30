@@ -22,9 +22,9 @@ body:
     validations:
       required: true
   - type: textarea
-    id: label
+    id: labels
     attributes:
-      label: Label
+      label: Labels
       description: Please provide one label (full name) per line.
       placeholder: |
         Centre National de Recherches Météorologiques

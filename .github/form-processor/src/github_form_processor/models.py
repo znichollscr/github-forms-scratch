@@ -307,9 +307,9 @@ class InstitutionRegistration(RegistrationBase):
             "@context": "000_context.jsonld",
             "id": self.identifier,
             "type": "organisation",
-            "description": self.description,
             "drs_name": self.name,
             "members": self.members,
+            "description": self.description,
         }
         return json.dumps(payload, indent=4) + "\n"
 
@@ -318,7 +318,7 @@ class InstitutionMemberRegistration(RegistrationBase):
     """Validated institution member registration submission."""
 
     acronyms: list[str]
-    label: list[str]
+    labels: list[str]
     urls: list[str] = Field(default_factory=list)
     ror_id: str
     locations: list[Location] = Field(default_factory=list)
@@ -331,7 +331,7 @@ class InstitutionMemberRegistration(RegistrationBase):
                 "name": _require_field(fields, "Member name"),
                 "description": _require_field(fields, "Member description"),
                 "acronyms": _require_field(fields, "Acronyms"),
-                "label": _require_field(fields, "Label"),
+                "labels": _require_field(fields, "Labels"),
                 "urls": _optional_field(fields, "Reference URLs"),
                 "ror_id": _require_field(fields, "ROR ID"),
             }
@@ -347,7 +347,7 @@ class InstitutionMemberRegistration(RegistrationBase):
             raise ValueError("must be at most 20 characters")
         return value
 
-    @field_validator("acronyms", "label", mode="before")
+    @field_validator("acronyms", "labels", mode="before")
     @classmethod
     def _parse_str_list(cls, value: Any) -> list[str]:
         items = list(parse_list(value))
@@ -386,14 +386,12 @@ class InstitutionMemberRegistration(RegistrationBase):
         payload: dict[str, Any] = {
             "@context": "000_context.jsonld",
             "id": self.identifier,
-            "type": "institution_member",
-            "description": self.description,
+            "type": "institution",
             "drs_name": self.name,
             "acronyms": self.acronyms,
-            "label": self.label,
-            "urls": self.urls,
-            "ror_id": self.ror_id,
-            "locations": [
+            "labels": self.labels,
+            "description": self.description,
+            "location": [
                 {
                     "city": loc.city,
                     "country": loc.country,
@@ -402,6 +400,8 @@ class InstitutionMemberRegistration(RegistrationBase):
                 }
                 for loc in self.locations
             ],
+            "ror": self.ror_id.removeprefix("https://ror.org/"),
+            "urls": self.urls,
         }
         return json.dumps(payload, indent=4) + "\n"
 

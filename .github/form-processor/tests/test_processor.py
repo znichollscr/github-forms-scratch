@@ -514,9 +514,9 @@ def test_prepare_institution_renders_json():
         "@context": "000_context.jsonld",
         "id": "cnrm-cerfacs",
         "type": "organisation",
-        "description": "A short institution description.",
         "drs_name": "CNRM-CERFACS",
         "members": ["cnrm", "cerfacs"],
+        "description": "A short institution description.",
     }
 
 
@@ -560,7 +560,7 @@ def test_prepare_institution_member_renders_json_with_ror_location():
             {
                 "Member name": "CNRM",
                 "Acronyms": "CNRM\nMétéo-France/CNRM",
-                "Label": "Centre National de Recherches Météorologiques",
+                "Labels": "Centre National de Recherches Météorologiques",
                 "Member description": "A short member description.",
                 "Reference URLs": "https://www.cnrm.meteo.fr/",
                 "ROR ID": "https://ror.org/02feahw73",
@@ -598,14 +598,12 @@ def test_prepare_institution_member_renders_json_with_ror_location():
     assert payload == {
         "@context": "000_context.jsonld",
         "id": "cnrm",
-        "type": "institution_member",
-        "description": "A short member description.",
+        "type": "institution",
         "drs_name": "CNRM",
         "acronyms": ["CNRM", "Météo-France/CNRM"],
-        "label": ["Centre National de Recherches Météorologiques"],
-        "urls": ["https://www.cnrm.meteo.fr/"],
-        "ror_id": "https://ror.org/02feahw73",
-        "locations": [
+        "labels": ["Centre National de Recherches Météorologiques"],
+        "description": "A short member description.",
+        "location": [
             {
                 "city": "Toulouse",
                 "country": "France",
@@ -613,6 +611,8 @@ def test_prepare_institution_member_renders_json_with_ror_location():
                 "lon": 1.4442,
             }
         ],
+        "ror": "02feahw73",
+        "urls": ["https://www.cnrm.meteo.fr/"],
     }
 
 
@@ -625,7 +625,7 @@ def test_prepare_institution_member_notes_ror_not_found():
             {
                 "Member name": "CNRM",
                 "Acronyms": "CNRM",
-                "Label": "Centre National de Recherches Météorologiques",
+                "Labels": "Centre National de Recherches Météorologiques",
                 "Member description": "A short member description.",
                 "ROR ID": "https://ror.org/02feahw73",
             }
@@ -646,7 +646,7 @@ def test_prepare_institution_member_notes_ror_not_found():
         "Location could not be auto-populated."
     ]
     assert result.prepared is not None
-    assert json.loads(result.prepared.content)["locations"] == []
+    assert json.loads(result.prepared.content)["location"] == []
 
 
 def _body(fields):

@@ -49,7 +49,7 @@ from github_form_processor.models import (
                 "name": "ABCDEFGHIJKLMNOPQRSTU",
                 "description": "A short member description.",
                 "acronyms": ["CNRM"],
-                "label": ["Centre National de Recherches Météorologiques"],
+                "labels": ["Centre National de Recherches Météorologiques"],
                 "ror_id": "https://ror.org/02feahw73",
             },
             "Value error, must be at most 20 characters",
@@ -80,7 +80,7 @@ def test_institution_member_accepts_valid_ror_id(ror_id):
             "name": "CNRM",
             "description": "A short member description.",
             "acronyms": ["CNRM"],
-            "label": ["Centre National de Recherches Météorologiques"],
+            "labels": ["Centre National de Recherches Météorologiques"],
             "ror_id": ror_id,
         }
     )
@@ -94,7 +94,7 @@ def test_institution_member_rejects_invalid_ror_id():
                 "name": "CNRM",
                 "description": "A short member description.",
                 "acronyms": ["CNRM"],
-                "label": ["Centre National de Recherches Météorologiques"],
+                "labels": ["Centre National de Recherches Météorologiques"],
                 "ror_id": "not-a-ror-id",
             }
         )
@@ -111,7 +111,7 @@ def test_institution_member_rejects_empty_acronyms():
                 "name": "CNRM",
                 "description": "A short member description.",
                 "acronyms": [],
-                "label": ["Centre National de Recherches Météorologiques"],
+                "labels": ["Centre National de Recherches Météorologiques"],
                 "ror_id": "https://ror.org/02feahw73",
             }
         )
