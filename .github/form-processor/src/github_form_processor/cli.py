@@ -39,6 +39,16 @@ def process_issue_form(
         "--activity-output-dir",
         help="Directory for generated activity JSON files.",
     ),
+    institution_output_dir: str = typer.Option(
+        "institution",
+        "--institution-output-dir",
+        help="Directory for generated institution JSON files.",
+    ),
+    institution_member_output_dir: str = typer.Option(
+        "institution_member",
+        "--institution-member-output-dir",
+        help="Directory for generated institution member JSON files.",
+    ),
     skip_external_checks: bool = typer.Option(
         False,
         "--skip-external-checks",
@@ -77,6 +87,8 @@ def process_issue_form(
         issue=issue,
         experiment_output_dir=experiment_output_dir,
         activity_output_dir=activity_output_dir,
+        institution_output_dir=institution_output_dir,
+        institution_member_output_dir=institution_member_output_dir,
         external_checks=not skip_external_checks,
         cv_client=CvClient(
             wcrp_universe_url=wcrp_universe_url,

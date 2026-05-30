@@ -18,6 +18,7 @@ from pydantic import (
 )
 
 NAME_PATTERN = re.compile(r"^[A-Za-z0-9-]+$")
+ROR_ID_PATTERN = re.compile(r"^https://ror\.org/[0-9a-z]{9}$")
 BLANK_VALUES = {"", "_No response_", "No response"}
 
 
@@ -254,6 +255,153 @@ class ActivityRegistration(RegistrationBase):
             "drs_name": self.name,
             "experiments": self.experiments,
             "urls": self.urls,
+        }
+        return json.dumps(payload, indent=4) + "\n"
+
+
+class Location(BaseModel):
+    """Location details for an institution member."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    city: str
+    country: str
+    lat: float
+    lon: float
+
+
+class InstitutionRegistration(RegistrationBase):
+    """Validated institution registration submission."""
+
+    members: list[str] = Field(default_factory=list)
+
+    @classmethod
+    def from_fields(cls, fields: dict[str, str]) -> InstitutionRegistration:
+        """Create an institution registration from parsed issue form fields."""
+        return cls.model_validate(
+            {
+                "name": _require_field(fields, "Institution name"),
+                "description": _require_field(fields, "Institution description"),
+                "members": _optional_field(fields, "Members"),
+            }
+        )
+
+    @field_validator("name")
+    @classmethod
+    def _validate_name(cls, value: str) -> str:
+        value = value.strip()
+        if not NAME_PATTERN.fullmatch(value):
+            raise ValueError("must contain only letters, numbers and hyphens")
+        if len(value) > 20:
+            raise ValueError("must be at most 20 characters")
+        return value
+
+    @field_validator("members", mode="before")
+    @classmethod
+    def _parse_members(cls, value: Any) -> list[str]:
+        return [_normalise_identifier(item) for item in parse_list(value)]
+
+    def render_json(self) -> str:
+        """Render the institution registration as a JSON file."""
+        payload: dict[str, Any] = {
+            "@context": "000_context.jsonld",
+            "id": self.identifier,
+            "type": "organisation",
+            "description": self.description,
+            "drs_name": self.name,
+            "members": self.members,
+        }
+        return json.dumps(payload, indent=4) + "\n"
+
+
+class InstitutionMemberRegistration(RegistrationBase):
+    """Validated institution member registration submission."""
+
+    acronyms: list[str]
+    label: list[str]
+    urls: list[str] = Field(default_factory=list)
+    ror_id: str
+    locations: list[Location] = Field(default_factory=list)
+
+    @classmethod
+    def from_fields(cls, fields: dict[str, str]) -> InstitutionMemberRegistration:
+        """Create an institution member registration from parsed issue form fields."""
+        return cls.model_validate(
+            {
+                "name": _require_field(fields, "Member name"),
+                "description": _require_field(fields, "Member description"),
+                "acronyms": _require_field(fields, "Acronyms"),
+                "label": _require_field(fields, "Label"),
+                "urls": _optional_field(fields, "Reference URLs"),
+                "ror_id": _require_field(fields, "ROR ID"),
+            }
+        )
+
+    @field_validator("name")
+    @classmethod
+    def _validate_name(cls, value: str) -> str:
+        value = value.strip()
+        if not NAME_PATTERN.fullmatch(value):
+            raise ValueError("must contain only letters, numbers and hyphens")
+        if len(value) > 20:
+            raise ValueError("must be at most 20 characters")
+        return value
+
+    @field_validator("acronyms", "label", mode="before")
+    @classmethod
+    def _parse_str_list(cls, value: Any) -> list[str]:
+        items = list(parse_list(value))
+        if not items:
+            raise ValueError("must not be empty")
+        return items
+
+    @field_validator("urls", mode="before")
+    @classmethod
+    def _parse_urls(cls, value: Any) -> list[str]:
+        return parse_list(value)
+
+    @field_validator("urls")
+    @classmethod
+    def _validate_urls(cls, value: list[str]) -> list[str]:
+        for url in value:
+            parsed = urlparse(url)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                raise ValueError(f"`{url}` must be an HTTP or HTTPS URL")
+        return value
+
+    @field_validator("ror_id")
+    @classmethod
+    def _validate_ror_id(cls, value: str) -> str:
+        value = value.strip()
+        if not value.startswith("https://ror.org/"):
+            value = f"https://ror.org/{value}"
+        if not ROR_ID_PATTERN.fullmatch(value):
+            raise ValueError(
+                "must be a valid ROR ID (e.g. https://ror.org/02feahw73)"
+            )
+        return value
+
+    def render_json(self) -> str:
+        """Render the institution member registration as a JSON file."""
+        payload: dict[str, Any] = {
+            "@context": "000_context.jsonld",
+            "id": self.identifier,
+            "type": "institution_member",
+            "description": self.description,
+            "drs_name": self.name,
+            "acronyms": self.acronyms,
+            "label": self.label,
+            "urls": self.urls,
+            "ror_id": self.ror_id,
+            "locations": [
+                {
+                    "city": loc.city,
+                    "country": loc.country,
+                    "lat": loc.lat,
+                    "lon": loc.lon,
+                }
+                for loc in self.locations
+            ],
         }
         return json.dumps(payload, indent=4) + "\n"
 
