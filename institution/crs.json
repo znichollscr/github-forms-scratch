@@ -1,0 +1,10 @@
+{
+    "@context": "000_context.jsonld",
+    "id": "crs",
+    "type": "organisation",
+    "description": "Climate Resource S test registration",
+    "drs_name": "CRS",
+    "members": [
+        "crs"
+    ]
+}
