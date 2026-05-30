@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import date
 from typing import Any
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 NAME_PATTERN = re.compile(r"^[A-Za-z0-9-]+$")
 BLANK_VALUES = {"", "_No response_", "No response"}
@@ -25,16 +33,6 @@ class RegistrationBase(BaseModel):
     def identifier(self) -> str:
         """Return the lower-case identifier used in CV filenames."""
         return self.name.lower()
-
-    @field_validator("name")
-    @classmethod
-    def _validate_name(cls, value: str) -> str:
-        value = value.strip()
-        if not NAME_PATTERN.fullmatch(value):
-            raise ValueError("must contain only letters, numbers and hyphens")
-        if len(value) >= 40:
-            raise ValueError("must be fewer than 40 characters")
-        return value
 
     @field_validator("description")
     @classmethod
@@ -60,6 +58,46 @@ class ExperimentRegistration(RegistrationBase):
     parent_activity: str | None = None
     parent_mip_era: str | None = None
     branch_information: str | None = None
+
+    @classmethod
+    def from_fields(cls, fields: dict[str, str]) -> ExperimentRegistration:
+        """Create an experiment registration from parsed issue form fields."""
+        return cls.model_validate(
+            {
+                "name": _require_field(fields, "Experiment name"),
+                "description": _require_field(fields, "Experiment description"),
+                "activity": _require_field(fields, "Activity"),
+                "tier": _require_field(fields, "Tier"),
+                "min_ensemble_size": _require_field(fields, "Minimum ensemble size"),
+                "start_date": _optional_field(fields, "Start date"),
+                "end_date": _optional_field(fields, "End date"),
+                "min_number_yrs_per_sim": _require_field(
+                    fields, "Minimum number of years per simulation"
+                ),
+                "required_model_components": _optional_field(
+                    fields, "Required model components"
+                ),
+                "additional_allowed_model_components": _optional_field(
+                    fields, "Additional allowed model components"
+                ),
+                "parent_experiment": _optional_field(fields, "Parent experiment"),
+                "parent_activity": _optional_field(fields, "Parent activity"),
+                "parent_mip_era": _optional_field(fields, "Parent MIP era"),
+                "branch_information": _optional_field(fields, "Branch information"),
+            }
+        )
+
+    @field_validator("name")
+    @classmethod
+    def _validate_name(cls, value: str) -> str:
+        value = value.strip()
+        if not NAME_PATTERN.fullmatch(value):
+            raise ValueError("must contain only letters, numbers and hyphens")
+        if len(value) >= 20:
+            raise ValueError(
+                "must be fewer than 20 characters, see https://zenodo.org/records/14929769"
+            )
+        return value
 
     @field_validator(
         "activity",
@@ -133,12 +171,59 @@ class ExperimentRegistration(RegistrationBase):
 
         return self
 
+    def render_json(self) -> str:
+        """Render the experiment registration as a JSON file."""
+        payload: dict[str, Any] = {
+            "@context": "000_context.jsonld",
+            "id": self.identifier,
+            "type": "experiment",
+            "description": self.description,
+            "drs_name": self.name,
+            "start_timestamp": self.start_date.isoformat() if self.start_date else None,
+            "end_timestamp": self.end_date.isoformat() if self.end_date else None,
+            "activity": self.activity,
+            "additional_allowed_model_components": (
+                self.additional_allowed_model_components
+            ),
+            "branch_information": self.branch_information,
+            "min_ensemble_size": self.min_ensemble_size,
+            "parent_activity": self.parent_activity,
+            "parent_experiment": self.parent_experiment,
+            "parent_mip_era": self.parent_mip_era,
+            "required_model_components": self.required_model_components,
+            "tier": self.tier,
+            "min_number_yrs_per_sim": self.min_number_yrs_per_sim,
+        }
+        return json.dumps(payload, indent=4) + "\n"
+
 
 class ActivityRegistration(RegistrationBase):
     """Validated activity registration submission."""
 
     experiments: list[str] = Field(default_factory=list)
     urls: list[str] = Field(default_factory=list)
+
+    @classmethod
+    def from_fields(cls, fields: dict[str, str]) -> ActivityRegistration:
+        """Create an activity registration from parsed issue form fields."""
+        return cls.model_validate(
+            {
+                "name": _require_field(fields, "Activity name"),
+                "description": _require_field(fields, "Activity description"),
+                "experiments": _optional_field(fields, "Experiments"),
+                "urls": _optional_field(fields, "Reference URLs"),
+            }
+        )
+
+    @field_validator("name")
+    @classmethod
+    def _validate_name(cls, value: str) -> str:
+        value = value.strip()
+        if not NAME_PATTERN.fullmatch(value):
+            raise ValueError("must contain only letters, numbers and hyphens")
+        if len(value) >= 12:
+            raise ValueError("must be fewer than 12 characters")
+        return value
 
     @field_validator("experiments", mode="before")
     @classmethod
@@ -159,6 +244,19 @@ class ActivityRegistration(RegistrationBase):
                 raise ValueError(f"`{url}` must be an HTTP or HTTPS URL")
         return value
 
+    def render_json(self) -> str:
+        """Render the activity registration as a JSON file."""
+        payload: dict[str, Any] = {
+            "@context": "000_context.jsonld",
+            "id": self.identifier,
+            "type": "activity",
+            "description": self.description,
+            "drs_name": self.name,
+            "experiments": self.experiments,
+            "urls": self.urls,
+        }
+        return json.dumps(payload, indent=4) + "\n"
+
 
 def parse_list(value: Any) -> list[str]:
     """Parse a text area or list-like value into clean list items."""
@@ -178,6 +276,29 @@ def parse_list(value: Any) -> list[str]:
         if item:
             items.append(item)
     return items
+
+
+def _require_field(fields: dict[str, str], label: str) -> str:
+    value = fields.get(label, "").strip()
+    if not value:
+        raise ValidationError.from_exception_data(
+            "Issue form",
+            [
+                {
+                    "type": "value_error",
+                    "loc": (label,),
+                    "msg": "Field required",
+                    "input": value,
+                    "ctx": {"error": ValueError("field is required")},
+                }
+            ],
+        )
+    return value
+
+
+def _optional_field(fields: dict[str, str], label: str) -> str | None:
+    value = fields.get(label, "").strip()
+    return value or None
 
 
 def _blank_to_none(value: Any) -> str | None:

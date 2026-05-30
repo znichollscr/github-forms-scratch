@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from github_form_processor.cv import CvClient, CvRepositories, JsonLookup, UrlCheck
+from github_form_processor.cv import CvClient, JsonLookup, UrlCheck
 from github_form_processor.processor import prepare_registration
 
 
@@ -14,8 +14,14 @@ class FakeCvClient:
     def __init__(self, entries):
         self.entries = entries
 
-    def fetch_json(self, base_url, folder, identifier):
-        entry = self.entries.get((base_url, folder, identifier))
+    def fetch_cmip7_json(self, folder, identifier):
+        entry = self.entries.get(("cmip7", folder, identifier))
+        if entry is None:
+            return JsonLookup(found=False)
+        return JsonLookup(found=True, data=entry)
+
+    def fetch_wcrp_universe_json(self, folder, identifier):
+        entry = self.entries.get(("wcrp-universe", folder, identifier))
         if entry is None:
             return JsonLookup(found=False)
         return JsonLookup(found=True, data=entry)
@@ -40,7 +46,7 @@ def test_prepare_experiment_registration_renders_superset_json():
                 "Experiment name": "My-Experiment",
                 "Experiment description": "A short experiment description.",
                 "Activity": "CMIP",
-                "Tier": "1 - highest priority",
+                "Tier": "1",
                 "Minimum ensemble size": "2",
                 "Start date": "2000-01-01",
                 "End date": "2010-12-31",
@@ -58,31 +64,11 @@ def test_prepare_experiment_registration_renders_superset_json():
     }
     cv_client = FakeCvClient(
         {
-            (
-                "https://raw.githubusercontent.com/WCRP-CMIP/CMIP7-CVs/esgvoc",
-                "activity",
-                "cmip",
-            ): {"id": "cmip"},
-            (
-                "https://raw.githubusercontent.com/WCRP-CMIP/WCRP-universe/esgvoc",
-                "source_type",
-                "aogcm",
-            ): {"id": "aogcm"},
-            (
-                "https://raw.githubusercontent.com/WCRP-CMIP/WCRP-universe/esgvoc",
-                "source_type",
-                "aer",
-            ): {"id": "aer"},
-            (
-                "https://raw.githubusercontent.com/WCRP-CMIP/WCRP-universe/esgvoc",
-                "source_type",
-                "bgc",
-            ): {"id": "bgc"},
-            (
-                "https://raw.githubusercontent.com/WCRP-CMIP/WCRP-universe/esgvoc",
-                "experiment",
-                "picontrol",
-            ): {
+            ("cmip7", "activity", "cmip"): {"id": "cmip"},
+            ("wcrp-universe", "source_type", "aogcm"): {"id": "aogcm"},
+            ("wcrp-universe", "source_type", "aer"): {"id": "aer"},
+            ("wcrp-universe", "source_type", "bgc"): {"id": "bgc"},
+            ("wcrp-universe", "experiment", "picontrol"): {
                 "id": "picontrol",
                 "activity": "cmip",
             },
@@ -131,7 +117,7 @@ def test_prepare_experiment_rejects_min_years_longer_than_date_span():
                 "Experiment name": "My-Experiment",
                 "Experiment description": "A short experiment description.",
                 "Activity": "cmip",
-                "Tier": "1 - highest priority",
+                "Tier": "1",
                 "Minimum ensemble size": "1",
                 "Start date": "2000-01-01",
                 "End date": "2000-12-31",
@@ -165,7 +151,7 @@ def test_prepare_experiment_raises_for_non_calendar_year_date_span():
                 "Experiment name": "My-Experiment",
                 "Experiment description": "A short experiment description.",
                 "Activity": "cmip",
-                "Tier": "1 - highest priority",
+                "Tier": "1",
                 "Minimum ensemble size": "1",
                 "Start date": "2000-02-01",
                 "End date": "2000-12-31",
@@ -183,7 +169,7 @@ def test_prepare_experiment_raises_for_non_calendar_year_date_span():
         )
 
 
-def test_prepare_experiment_uses_configured_remote_cv_repositories():
+def test_prepare_experiment_uses_configured_cv_client():
     issue = {
         "title": "[Experiment registration]: Test",
         "labels": [{"name": "registration: experiment"}],
@@ -192,7 +178,7 @@ def test_prepare_experiment_uses_configured_remote_cv_repositories():
                 "Experiment name": "My-Experiment",
                 "Experiment description": "A short experiment description.",
                 "Activity": "cmip",
-                "Tier": "1 - highest priority",
+                "Tier": "1",
                 "Minimum ensemble size": "1",
                 "Minimum number of years per simulation": "1.0",
                 "Required model components": "aogcm",
@@ -201,11 +187,45 @@ def test_prepare_experiment_uses_configured_remote_cv_repositories():
     }
     cv_client = FakeCvClient(
         {
-            ("https://example.test/cmip7-cvs/custom", "activity", "cmip"): {
-                "id": "cmip"
-            },
-            ("https://example.test/universe/custom", "source_type", "aogcm"): {
-                "id": "aogcm"
+            ("cmip7", "activity", "cmip"): {"id": "cmip"},
+            ("wcrp-universe", "source_type", "aogcm"): {"id": "aogcm"},
+        }
+    )
+
+    result = prepare_registration(
+        issue=issue,
+        experiment_output_dir="experiment",
+        activity_output_dir="activity",
+        cv_client=cv_client,
+    )
+
+    assert result.prepared is not None
+    assert result.validation_errors == []
+    assert result.notes == []
+
+
+def test_prepare_experiment_errors_missing_parent_activity_with_parent_experiment():
+    issue = {
+        "title": "[Experiment registration]: Test",
+        "labels": [{"name": "registration: experiment"}],
+        "body": _body(
+            {
+                "Experiment name": "My-Experiment",
+                "Experiment description": "A short experiment description.",
+                "Activity": "cmip",
+                "Tier": "1",
+                "Minimum ensemble size": "1",
+                "Minimum number of years per simulation": "1.0",
+                "Parent experiment": "piControl",
+            }
+        ),
+    }
+    cv_client = FakeCvClient(
+        {
+            ("cmip7", "activity", "cmip"): {"id": "cmip"},
+            ("wcrp-universe", "experiment", "picontrol"): {
+                "id": "picontrol",
+                "activity": "cmip",
             },
         }
     )
@@ -215,15 +235,55 @@ def test_prepare_experiment_uses_configured_remote_cv_repositories():
         experiment_output_dir="experiment",
         activity_output_dir="activity",
         cv_client=cv_client,
-        cv_repositories=CvRepositories(
-            wcrp_universe_url="https://example.test/universe/custom",
-            cmip7_cvs_url="https://example.test/cmip7-cvs/custom",
+    )
+
+    assert result.prepared is None
+    assert result.validation_errors == [
+        "Parent activity must be supplied when parent experiment `picontrol` "
+        "is supplied."
+    ]
+    assert result.notes == []
+
+
+def test_prepare_experiment_notes_parent_cv_entry_missing_activity():
+    issue = {
+        "title": "[Experiment registration]: Test",
+        "labels": [{"name": "registration: experiment"}],
+        "body": _body(
+            {
+                "Experiment name": "My-Experiment",
+                "Experiment description": "A short experiment description.",
+                "Activity": "cmip",
+                "Tier": "1",
+                "Minimum ensemble size": "1",
+                "Minimum number of years per simulation": "1.0",
+                "Parent experiment": "piControl",
+                "Parent activity": "CMIP",
+            }
         ),
+    }
+    cv_client = FakeCvClient(
+        {
+            ("cmip7", "activity", "cmip"): {"id": "cmip"},
+            ("wcrp-universe", "experiment", "picontrol"): {
+                "id": "picontrol",
+            },
+        }
+    )
+
+    result = prepare_registration(
+        issue=issue,
+        experiment_output_dir="experiment",
+        activity_output_dir="activity",
+        cv_client=cv_client,
     )
 
     assert result.prepared is not None
     assert result.validation_errors == []
-    assert result.notes == []
+    assert result.notes == [
+        "Could not check parent activity for parent experiment `picontrol`: "
+        "parent experiment entry does not include an `activity` value."
+    ]
 
 
 def test_prepare_experiment_allows_missing_required_model_components():
@@ -235,7 +295,7 @@ def test_prepare_experiment_allows_missing_required_model_components():
                 "Experiment name": "My-Experiment",
                 "Experiment description": "A short experiment description.",
                 "Activity": "cmip",
-                "Tier": "1 - highest priority",
+                "Tier": "1",
                 "Minimum ensemble size": "1",
                 "Minimum number of years per simulation": "1.0",
             }
@@ -255,6 +315,60 @@ def test_prepare_experiment_allows_missing_required_model_components():
     assert json.loads(result.prepared.content)["required_model_components"] == []
 
 
+@pytest.mark.parametrize(
+    ("kind", "name_label", "name_value", "expected_error"),
+    [
+        (
+            "experiment",
+            "Experiment name",
+            "ABCDEFGHIJKLMNOPQRSTU",
+            "name: Value error, must be fewer than 20 characters, see "
+            "https://zenodo.org/records/14929769",
+        ),
+        (
+            "activity",
+            "Activity name",
+            "ABCDEFGHIJKLM",
+            "name: Value error, must be fewer than 12 characters",
+        ),
+    ],
+)
+def test_prepare_registration_rejects_overlong_names(
+    kind, name_label, name_value, expected_error
+):
+    issue = {
+        "title": f"[{kind.title()} registration]: Test",
+        "labels": [{"name": f"registration: {kind}"}],
+        "body": _body(
+            {
+                name_label: name_value,
+                f"{kind.title()} description": f"A short {kind} description.",
+                **(
+                    {
+                        "Activity": "cmip",
+                        "Tier": "1",
+                        "Minimum ensemble size": "1",
+                        "Minimum number of years per simulation": "1.0",
+                    }
+                    if kind == "experiment"
+                    else {"Experiments": "known-exp"}
+                ),
+            }
+        ),
+    }
+
+    result = prepare_registration(
+        issue=issue,
+        experiment_output_dir="experiment",
+        activity_output_dir="activity",
+        external_checks=False,
+    )
+
+    assert result.prepared is None
+    assert result.notes == []
+    assert result.validation_errors == [expected_error]
+
+
 def test_prepare_activity_blocks_inaccessible_reference_url():
     issue = {
         "title": "[Activity registration]: Test",
@@ -270,11 +384,7 @@ def test_prepare_activity_blocks_inaccessible_reference_url():
     }
     cv_client = FakeCvClient(
         {
-            (
-                "https://raw.githubusercontent.com/WCRP-CMIP/CMIP7-CVs/esgvoc",
-                "experiment",
-                "known-exp",
-            ): {"id": "known-exp"},
+            ("cmip7", "experiment", "known-exp"): {"id": "known-exp"},
         }
     )
     url_checker = FakeUrlChecker(
@@ -356,10 +466,7 @@ def test_prepare_activity_can_check_cmip7_cvs_from_local_path(tmp_path):
         issue=issue,
         experiment_output_dir="experiment",
         activity_output_dir="activity",
-        cv_client=CvClient(),
-        cv_repositories=CvRepositories(
-            cmip7_cvs_path=tmp_path,
-        ),
+        cv_client=CvClient(cmip7_cvs_path=tmp_path),
     )
 
     assert result.prepared is not None

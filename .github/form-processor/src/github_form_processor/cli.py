@@ -8,17 +8,18 @@ from pathlib import Path
 
 import typer
 
-from github_form_processor.cv import CvRepositories
-from github_form_processor.github_api import GitHubClient
-from github_form_processor.processor import (
-    PreparedRegistration,
+from github_form_processor.cv import CvClient
+from github_form_processor.format import (
     format_edit_error_comment,
+    format_output_path_for_identifier,
     format_success_comment,
     format_validation_comment,
-    prepare_registration,
 )
+from github_form_processor.github_api import GitHubClient
+from github_form_processor.processor import PreparedRegistration, prepare_registration
 
 app = typer.Typer(no_args_is_help=True)
+PR_BASE_BRANCH = "esgvoc_dev"
 
 
 @app.command("process")
@@ -41,7 +42,7 @@ def process_issue_form(
     skip_external_checks: bool = typer.Option(
         False,
         "--skip-external-checks",
-        help="Skip remote CV and URL checks.",
+        help="Skip CV and URL checks.",
     ),
     wcrp_universe_url: str = typer.Option(
         "https://raw.githubusercontent.com/WCRP-CMIP/WCRP-universe/esgvoc",
@@ -77,7 +78,7 @@ def process_issue_form(
         experiment_output_dir=experiment_output_dir,
         activity_output_dir=activity_output_dir,
         external_checks=not skip_external_checks,
-        cv_repositories=CvRepositories(
+        cv_client=CvClient(
             wcrp_universe_url=wcrp_universe_url,
             cmip7_cvs_url=cmip7_cvs_url,
             cmip7_cvs_path=cmip7_cvs_path,
@@ -90,7 +91,10 @@ def process_issue_form(
     token = os.environ.get("GITHUB_TOKEN")
     repository = os.environ.get("GITHUB_REPOSITORY")
     if not token or not repository:
-        typer.echo("GITHUB_TOKEN and GITHUB_REPOSITORY are required.", err=True)
+        typer.echo(
+            "GITHUB_TOKEN and GITHUB_REPOSITORY environment variables must be set.",
+            err=True,
+        )
         raise typer.Exit(2)
 
     client = GitHubClient(repository=repository, token=token)
@@ -107,20 +111,18 @@ def process_issue_form(
         typer.echo("Registration form has validation errors.")
         raise typer.Exit(0)
 
-    if preparation.prepared is None:
-        typer.echo("Issue does not match a known registration form.")
-        raise typer.Exit(0)
-
     action = event.get("action")
-    default_branch = event.get("repository", {}).get("default_branch", "main")
-    branch = preparation.prepared.branch_name(issue_number)
+    branch = (
+        f"registration/{preparation.prepared.kind}-{issue_number}-"
+        f"{preparation.prepared.identifier}"
+    )
 
     if action == "opened":
         raise typer.Exit(
             _process_opened_issue(
                 client=client,
                 issue_number=issue_number,
-                default_branch=default_branch,
+                base_branch=PR_BASE_BRANCH,
                 branch=branch,
                 prepared=preparation.prepared,
             )
@@ -152,15 +154,15 @@ def _process_opened_issue(
     *,
     client: GitHubClient,
     issue_number: int,
-    default_branch: str,
+    base_branch: str,
     branch: str,
     prepared: PreparedRegistration,
 ) -> int:
     """Create the registration branch, commit and pull request."""
-    if client.content_exists(prepared.output_path, default_branch):
+    if client.content_exists(prepared.output_path, base_branch):
         message = (
             f"Target file `{prepared.output_path}` already exists on "
-            f"`{default_branch}`."
+            f"`{base_branch}`."
         )
         client.comment_issue(
             issue_number,
@@ -169,7 +171,7 @@ def _process_opened_issue(
         raise RuntimeError(message)
 
     if not client.branch_exists(branch):
-        base_sha = client.get_ref_sha(default_branch)
+        base_sha = client.get_ref_sha(base_branch)
         client.create_branch(branch, base_sha)
 
     client.put_file(
@@ -182,8 +184,11 @@ def _process_opened_issue(
     pull_request = client.create_pull_request(
         title=prepared.pull_request_title,
         head=branch,
-        base=default_branch,
-        body=prepared.pull_request_body(issue_number),
+        base=base_branch,
+        body=(
+            f"Automated {prepared.kind} registration generated from #{issue_number}."
+            f"\n\nCloses #{issue_number}"
+        ),
     )
     pr_number = int(pull_request["number"])
     client.assign_issue(pr_number, ["znichollscr", "ltroussellier"])
@@ -208,6 +213,7 @@ def _process_edited_issue(
     pulls = client.find_pull_requests_for_branch(branch)
     if not pulls:
         pulls = client.find_pull_requests_for_issue(issue_number)
+
     open_pulls = [pull for pull in pulls if pull.get("state") == "open"]
     if len(open_pulls) > 1:
         pull_numbers = ", ".join(f"#{pull['number']}" for pull in open_pulls)
@@ -232,8 +238,7 @@ def _process_edited_issue(
                 "Please open a new registration issue."
             )
         client.comment_issue(issue_number, format_edit_error_comment(message))
-        typer.echo(message, err=True)
-        return 1
+        raise RuntimeError(message)
 
     pull_request = open_pulls[0]
     target_branch = str(pull_request.get("head", {}).get("ref") or branch)
@@ -279,4 +284,7 @@ def _previous_output_path(
     previous_identifier = branch.removeprefix(prefix)
     if previous_identifier == prepared.identifier:
         return None
-    return prepared.output_path_for_identifier(previous_identifier)
+    return format_output_path_for_identifier(
+        Path(prepared.output_path),
+        previous_identifier,
+    )

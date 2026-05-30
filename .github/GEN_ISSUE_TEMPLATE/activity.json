@@ -1,0 +1,11 @@
+{
+  "name": "Link Activity to CMIP7",
+  "description": "Register an activity for use in CMIP7",
+  "title": "Link Activity to CMIP7:",
+  "labels": ["delta", "activity", "Review"],
+  "issue_category": "activity",
+  "dropdown_title": "Currently registered in CMIP7",
+  "field_guidance": {
+    "activity": "{cmip7_activity}"
+  }
+}

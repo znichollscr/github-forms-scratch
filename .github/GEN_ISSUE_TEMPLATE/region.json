@@ -1,0 +1,11 @@
+{
+  "name": "Link Region to CMIP7",
+  "description": "Register a region for use in CMIP7",
+  "title": "Link Region to CMIP7:",
+  "labels": ["delta", "region", "Review"],
+  "issue_category": "region",
+  "dropdown_title": "Currently registered in CMIP7",
+  "field_guidance": {
+    "region": "{cmip7_region}"
+  }
+}
