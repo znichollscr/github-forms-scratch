@@ -1,0 +1,26 @@
+{
+    "@context": "000_context.jsonld",
+    "id": "crs",
+    "type": "institution_member",
+    "description": "Climate Resource S test registration",
+    "drs_name": "CRS",
+    "acronyms": [
+        "CRS",
+        "Climate-Resource-S-GmbH"
+    ],
+    "label": [
+        "Climate Resource S GmbH"
+    ],
+    "urls": [
+        "https://www.climate-resource.com/"
+    ],
+    "ror_id": "https://ror.org/01kk86953",
+    "locations": [
+        {
+            "city": "Melbourne",
+            "country": "Australia",
+            "lat": -37.814,
+            "lon": 144.96332
+        }
+    ]
+}
