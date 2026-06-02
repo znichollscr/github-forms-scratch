@@ -317,8 +317,8 @@ class InstitutionRegistration(RegistrationBase):
 class InstitutionMemberRegistration(RegistrationBase):
     """Validated institution member registration submission."""
 
-    acronyms: list[str]
-    labels: list[str]
+    acronyms: list[str] = Field(default_factory=list)
+    labels: list[str] = Field(default_factory=list)
     urls: list[str] = Field(default_factory=list)
     ror_id: str
     locations: list[Location] = Field(default_factory=list)
@@ -330,8 +330,8 @@ class InstitutionMemberRegistration(RegistrationBase):
             {
                 "name": _require_field(fields, "Member DRS name"),
                 "description": _require_field(fields, "Member description"),
-                "acronyms": _require_field(fields, "Acronyms"),
-                "labels": _require_field(fields, "Labels"),
+                "acronyms": _optional_field(fields, "Acronyms"),
+                "labels": _optional_field(fields, "Labels"),
                 "urls": _optional_field(fields, "Reference URLs"),
                 "ror_id": _require_field(fields, "ROR ID"),
             }
@@ -350,10 +350,7 @@ class InstitutionMemberRegistration(RegistrationBase):
     @field_validator("acronyms", "labels", mode="before")
     @classmethod
     def _parse_str_list(cls, value: Any) -> list[str]:
-        items = list(parse_list(value))
-        if not items:
-            raise ValueError("must not be empty")
-        return items
+        return parse_list(value)
 
     @field_validator("urls", mode="before")
     @classmethod

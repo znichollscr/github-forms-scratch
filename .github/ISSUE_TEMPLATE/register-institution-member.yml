@@ -15,21 +15,21 @@ body:
     id: acronyms
     attributes:
       label: Acronyms
-      description: Please provide one acronym per line.
+      description: Please provide one acronym per line. If left blank, acronyms are auto-populated from the ROR entry.
       placeholder: |
         CNRM
         Météo-France/CNRM
     validations:
-      required: true
+      required: false
   - type: textarea
     id: labels
     attributes:
       label: Labels
-      description: Please provide one label (full name) per line.
+      description: Please provide one label (full name) per line. If left blank, labels are auto-populated from the ROR entry.
       placeholder: |
         Centre National de Recherches Météorologiques
     validations:
-      required: true
+      required: false
   - type: textarea
     id: member-description
     attributes:

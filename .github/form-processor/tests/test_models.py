@@ -104,20 +104,19 @@ def test_institution_member_rejects_invalid_ror_id():
     assert "valid ROR ID" in error["msg"]
 
 
-def test_institution_member_rejects_empty_acronyms():
-    with pytest.raises(ValidationError) as exc_info:
-        InstitutionMemberRegistration.model_validate(
-            {
-                "name": "CNRM",
-                "description": "A short member description.",
-                "acronyms": [],
-                "labels": ["Centre National de Recherches Météorologiques"],
-                "ror_id": "https://ror.org/02feahw73",
-            }
-        )
+def test_institution_member_accepts_empty_acronyms_and_labels():
+    member = InstitutionMemberRegistration.model_validate(
+        {
+            "name": "CNRM",
+            "description": "A short member description.",
+            "acronyms": [],
+            "labels": [],
+            "ror_id": "https://ror.org/02feahw73",
+        }
+    )
 
-    errors = exc_info.value.errors()
-    assert any(e["loc"] == ("acronyms",) for e in errors)
+    assert member.acronyms == []
+    assert member.labels == []
 
 
 def test_institution_registration_name_exactly_20_chars_is_valid():
