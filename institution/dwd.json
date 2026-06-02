@@ -1,0 +1,10 @@
+{
+    "@context": "000_context.jsonld",
+    "id": "dwd",
+    "type": "organisation",
+    "drs_name": "DWD",
+    "members": [
+        "dwd"
+    ],
+    "description": "German Meteorological Service (Deutscher Wetterdienst)."
+}
