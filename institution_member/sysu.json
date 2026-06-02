@@ -1,0 +1,26 @@
+{
+    "@context": "000_context.jsonld",
+    "id": "sysu",
+    "type": "institution",
+    "drs_name": "SYSU",
+    "acronyms": [],
+    "labels": [
+        "Sun Yat-sen University",
+        "\u4e2d\u5c71\u5927\u5b66"
+    ],
+    "description": "Sun Yat-sen University, a public university in Guangzhou, China.",
+    "location": [
+        {
+            "city": "Guangzhou",
+            "country": "China",
+            "lat": 23.11667,
+            "lon": 113.25
+        }
+    ],
+    "ror": "0064kty71",
+    "urls": [
+        "https://www.sysu.edu.cn/sysuen/",
+        "https://www.sysu.edu.cn",
+        "http://en.wikipedia.org/wiki/Sun_Yat-sen_University"
+    ]
+}
