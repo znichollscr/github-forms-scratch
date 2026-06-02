@@ -1,0 +1,29 @@
+{
+    "@context": "000_context.jsonld",
+    "id": "metno",
+    "type": "institution",
+    "drs_name": "METNo",
+    "acronyms": [
+        "METNo",
+        "MET"
+    ],
+    "labels": [
+        "Meteorologisk institutt",
+        "Norwegian Meteorological Institute",
+        "MET Norway"
+    ],
+    "description": "Norwegian Meteorological Institute",
+    "location": [
+        {
+            "city": "Oslo",
+            "country": "Norway",
+            "lat": 59.91273,
+            "lon": 10.74609
+        }
+    ],
+    "ror": "001n36p86",
+    "urls": [
+        "http://met.no",
+        "https://en.wikipedia.org/wiki/Norwegian_Meteorological_Institute"
+    ]
+}
