@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from github_form_processor.cv import (
     CvClient,
     RorClient,
+    RorLookup,
     UrlChecker,
     check_activity_against_cvs,
     check_activity_urls,
@@ -173,48 +174,21 @@ def prepare_registration(
             )
         elif kind == "institution-member":
             member = InstitutionMemberRegistration.from_fields(fields)
-            if external_checks and not member.locations:
+            if external_checks:
                 ror_lookup = ror_client.fetch_location(member.ror_id)
                 if ror_lookup.error:
                     notes.append(
-                        f"Could not fetch location from ROR entry "
+                        f"Could not fetch metadata from ROR entry "
                         f"`{member.ror_id}`: {ror_lookup.error}."
                     )
                 elif not ror_lookup.found:
                     notes.append(
                         f"ROR entry `{member.ror_id}` was not found. "
-                        "Location could not be auto-populated."
-                    )
-                elif ror_lookup.locations:
-                    locs = ror_lookup.locations
-                    member = member.model_copy(
-                        update={
-                            "locations": [
-                                Location(
-                                    city=loc["city"],
-                                    country=loc["country"],
-                                    lat=loc["lat"],
-                                    lon=loc["lon"],
-                                )
-                                for loc in locs
-                            ]
-                        }
-                    )
-                    n = len(locs)
-                    noun = "location" if n == 1 else "locations"
-                    loc_strs = "; ".join(
-                        f"{loc['city']}, {loc['country']} "
-                        f"({loc['lat']}, {loc['lon']})"
-                        for loc in locs
-                    )
-                    notes.append(
-                        f"{n} {noun} auto-populated from ROR: {loc_strs}."
+                        "Metadata could not be auto-populated."
                     )
                 else:
-                    notes.append(
-                        f"ROR entry `{member.ror_id}` does not include "
-                        "location data."
-                    )
+                    member, ror_notes = _apply_ror_metadata(member, ror_lookup)
+                    notes.extend(ror_notes)
             prepared = PreparedRegistration(
                 kind=kind,
                 identifier=member.identifier,
@@ -251,6 +225,86 @@ def prepare_registration(
         validation_errors=[],
         notes=notes,
     )
+
+
+def _pluralise(count: int, noun: str) -> str:
+    """Return ``count`` followed by ``noun``, pluralised when not one."""
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
+
+
+def _new_items(candidates: list[str], existing: list[str]) -> list[str]:
+    """Return ``candidates`` not already in ``existing``, without duplicates."""
+    new_items: list[str] = []
+    for item in candidates:
+        if item not in existing and item not in new_items:
+            new_items.append(item)
+    return new_items
+
+
+def _apply_ror_metadata(
+    member: InstitutionMemberRegistration, ror_lookup: RorLookup
+) -> tuple[InstitutionMemberRegistration, list[str]]:
+    """Auto-populate member metadata from a found ROR entry.
+
+    Adds the ROR locations, and any ROR names and links the user did not
+    already supply. ROR names are routed by type: acronym names extend the
+    acronyms, while label and alias names extend the labels. ROR links extend
+    the reference URLs. Returns the updated member and any non-blocking notes
+    describing what was added.
+    """
+    notes: list[str] = []
+    updates: dict[str, Any] = {}
+
+    if ror_lookup.locations:
+        updates["locations"] = [
+            Location(
+                city=loc["city"],
+                country=loc["country"],
+                lat=loc["lat"],
+                lon=loc["lon"],
+            )
+            for loc in ror_lookup.locations
+        ]
+        loc_strs = "; ".join(
+            f"{loc['city']}, {loc['country']} ({loc['lat']}, {loc['lon']})"
+            for loc in ror_lookup.locations
+        )
+        notes.append(
+            f"{_pluralise(len(ror_lookup.locations), 'location')} "
+            f"auto-populated from ROR: {loc_strs}."
+        )
+    else:
+        notes.append(
+            f"ROR entry `{member.ror_id}` does not include location data."
+        )
+
+    new_labels = _new_items(ror_lookup.labels, member.labels)
+    if new_labels:
+        updates["labels"] = [*member.labels, *new_labels]
+        notes.append(
+            f"{_pluralise(len(new_labels), 'label')} auto-populated from ROR: "
+            f"{', '.join(new_labels)}."
+        )
+
+    new_acronyms = _new_items(ror_lookup.acronyms, member.acronyms)
+    if new_acronyms:
+        updates["acronyms"] = [*member.acronyms, *new_acronyms]
+        notes.append(
+            f"{_pluralise(len(new_acronyms), 'acronym')} auto-populated from "
+            f"ROR: {', '.join(new_acronyms)}."
+        )
+
+    new_urls = _new_items(ror_lookup.links, member.urls)
+    if new_urls:
+        updates["urls"] = [*member.urls, *new_urls]
+        notes.append(
+            f"{_pluralise(len(new_urls), 'reference URL')} auto-populated from "
+            f"ROR: {', '.join(new_urls)}."
+        )
+
+    if updates:
+        member = member.model_copy(update=updates)
+    return member, notes
 
 
 def detect_form_kind(issue: dict[str, Any], fields: dict[str, str]) -> str | None:

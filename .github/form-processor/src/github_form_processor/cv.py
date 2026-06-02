@@ -45,6 +45,9 @@ class RorLookup:
 
     found: bool
     locations: list[dict[str, Any]] = field(default_factory=list)
+    labels: list[str] = field(default_factory=list)
+    acronyms: list[str] = field(default_factory=list)
+    links: list[str] = field(default_factory=list)
     error: str | None = None
 
 
@@ -142,7 +145,9 @@ class RorClient:
         self.timeout = timeout
 
     def fetch_location(self, ror_id: str) -> RorLookup:
-        """Fetch location data for a ROR ID.
+        """Fetch metadata for a ROR ID.
+
+        Returns the locations, names and links recorded for the ROR entry.
 
         Parameters
         ----------
@@ -164,16 +169,12 @@ class RorClient:
         except (URLError, TimeoutError, json.JSONDecodeError) as exc:
             return RorLookup(found=False, error=f"{type(exc).__name__}: {exc}")
 
-        raw_locations = payload.get("locations", [])
-        if not raw_locations:
-            return RorLookup(found=True)
-
-        parsed: list[dict[str, Any]] = []
+        locations: list[dict[str, Any]] = []
         required_keys = ("name", "country_name", "lat", "lng")
-        for entry in raw_locations:
+        for entry in payload.get("locations", []):
             details = entry.get("geonames_details") or {}
             if all(key in details for key in required_keys):
-                parsed.append(
+                locations.append(
                     {
                         "city": details["name"],
                         "country": details["country_name"],
@@ -182,7 +183,32 @@ class RorClient:
                     }
                 )
 
-        return RorLookup(found=True, locations=parsed)
+        labels: list[str] = []
+        acronyms: list[str] = []
+        label_types = {"label", "alias", "ror_display"}
+        for entry in payload.get("names", []):
+            value = entry.get("value")
+            if not value:
+                continue
+            types = set(entry.get("types", []))
+            if "acronym" in types:
+                acronyms.append(value)
+            if types & label_types:
+                labels.append(value)
+
+        links = [
+            entry["value"]
+            for entry in payload.get("links", [])
+            if entry.get("value")
+        ]
+
+        return RorLookup(
+            found=True,
+            locations=locations,
+            labels=labels,
+            acronyms=acronyms,
+            links=links,
+        )
 
 
 def check_experiment_against_cvs(
