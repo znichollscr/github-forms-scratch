@@ -1,0 +1,10 @@
+{
+    "@context": "000_context.jsonld",
+    "id": "noaa-gfdl",
+    "type": "organisation",
+    "drs_name": "NOAA-GFDL",
+    "members": [
+        "noaa-gfdl"
+    ],
+    "description": "US National Oceanic and Atmospheric Administration's Geophysical Fluid Dynamics Laboratory."
+}
