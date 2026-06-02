@@ -5,10 +5,10 @@ labels:
   - "registration: institution"
 body:
   - type: input
-    id: institution-name
+    id: institution-drs-name
     attributes:
-      label: Institution name
-      description: Use only letters, numbers and hyphens. The name must be at most 20 characters. For example, CNRM-CERFACS.
+      label: Institution DRS name
+      description: This is the value that will be used in file and folder names (i.e. the DRS). Use only letters, numbers and hyphens. The name must be at most 20 characters. For example, CNRM-CERFACS.
     validations:
       required: true
   - type: textarea

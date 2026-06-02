@@ -5,10 +5,10 @@ labels:
   - "registration: institution-member"
 body:
   - type: input
-    id: member-name
+    id: member-drs-name
     attributes:
-      label: Member name
-      description: Use only letters, numbers and hyphens. The name must be at most 20 characters. For example, CNRM.
+      label: Member DRS name
+      description: This is the value that will be used in file and folder names (i.e. the DRS). Use only letters, numbers and hyphens. The name must be at most 20 characters. For example, CNRM.
     validations:
       required: true
   - type: textarea
@@ -50,7 +50,7 @@ body:
     id: ror-id
     attributes:
       label: ROR ID
-      description: The Research Organization Registry (https://ror.org/) identifier. For example, https://ror.org/02feahw73.
-      placeholder: "https://ror.org/"
+      description: The Research Organization Registry (https://ror.org/) identifier or full link. For example, 02feahw73 or https://ror.org/02feahw73.
+      placeholder: "02feahw73"
     validations:
       required: true

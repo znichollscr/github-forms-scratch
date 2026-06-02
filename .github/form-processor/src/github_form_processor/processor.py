@@ -272,8 +272,8 @@ def detect_form_kind(issue: dict[str, Any], fields: dict[str, str]) -> str | Non
         return "experiment"
     if "Activity name" in fields:
         return "activity"
-    if "Member name" in fields:
+    if "Member DRS name" in fields:
         return "institution-member"
-    if "Institution name" in fields:
+    if "Institution DRS name" in fields:
         return "institution"
     return None

@@ -492,7 +492,7 @@ def test_prepare_institution_renders_json():
         "labels": [{"name": "registration: institution"}],
         "body": _body(
             {
-                "Institution name": "CNRM-CERFACS",
+                "Institution DRS name": "CNRM-CERFACS",
                 "Institution description": "A short institution description.",
                 "Members": "cnrm\ncerfacs",
             }
@@ -526,7 +526,7 @@ def test_prepare_institution_notes_missing_member():
         "labels": [{"name": "registration: institution"}],
         "body": _body(
             {
-                "Institution name": "CNRM-CERFACS",
+                "Institution DRS name": "CNRM-CERFACS",
                 "Institution description": "A short institution description.",
                 "Members": "cnrm\ncerfacs",
             }
@@ -558,7 +558,7 @@ def test_prepare_institution_member_renders_json_with_ror_location():
         "labels": [{"name": "registration: institution-member"}],
         "body": _body(
             {
-                "Member name": "CNRM",
+                "Member DRS name": "CNRM",
                 "Acronyms": "CNRM\nMétéo-France/CNRM",
                 "Labels": "Centre National de Recherches Météorologiques",
                 "Member description": "A short member description.",
@@ -623,7 +623,7 @@ def test_prepare_institution_member_notes_ror_not_found():
         "labels": [{"name": "registration: institution-member"}],
         "body": _body(
             {
-                "Member name": "CNRM",
+                "Member DRS name": "CNRM",
                 "Acronyms": "CNRM",
                 "Labels": "Centre National de Recherches Météorologiques",
                 "Member description": "A short member description.",

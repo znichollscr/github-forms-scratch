@@ -280,7 +280,7 @@ class InstitutionRegistration(RegistrationBase):
         """Create an institution registration from parsed issue form fields."""
         return cls.model_validate(
             {
-                "name": _require_field(fields, "Institution name"),
+                "name": _require_field(fields, "Institution DRS name"),
                 "description": _require_field(fields, "Institution description"),
                 "members": _optional_field(fields, "Members"),
             }
@@ -328,7 +328,7 @@ class InstitutionMemberRegistration(RegistrationBase):
         """Create an institution member registration from parsed issue form fields."""
         return cls.model_validate(
             {
-                "name": _require_field(fields, "Member name"),
+                "name": _require_field(fields, "Member DRS name"),
                 "description": _require_field(fields, "Member description"),
                 "acronyms": _require_field(fields, "Acronyms"),
                 "labels": _require_field(fields, "Labels"),
