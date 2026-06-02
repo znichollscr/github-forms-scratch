@@ -1,0 +1,10 @@
+{
+    "@context": "000_context.jsonld",
+    "id": "sysu",
+    "type": "organisation",
+    "drs_name": "SYSU",
+    "members": [
+        "sysu"
+    ],
+    "description": "Sun Yat-sen University, a public university in Guangzhou, China."
+}
