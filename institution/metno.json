@@ -1,0 +1,10 @@
+{
+    "@context": "000_context.jsonld",
+    "id": "metno",
+    "type": "organisation",
+    "drs_name": "METNo",
+    "members": [
+        "metno"
+    ],
+    "description": "Norwegian Meteorological Institute"
+}
